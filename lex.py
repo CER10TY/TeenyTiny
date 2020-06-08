@@ -84,6 +84,48 @@ class Lexer:
                 token = Token(lastchar + self.curChar, TokenType.NOTEQ)
             else:
                 self.abort("Expected !=, got !" + self.peek())
+        elif self.curChar == '\"':
+            # Get characters between quotations
+            self.nextChar()
+            startPos = self.curPos
+
+            while self.curChar != '\"':
+                # No special characters since this compiles in C
+                if self.curChar == '\r' or self.curChar == '\n' or self.curChar == '\t' or self.curChar == '\\' or self.curChar == '%':
+                    self.abort("Illegal character in string.")
+                self.nextChar()
+            
+            tokText = self.source[startPos : self.curPos] # Substring
+            token = Token(tokText, TokenType.STRING)
+        elif self.curChar.isdigit():
+            # This is a digit, so check if there's any decimals or similar
+            startPos = self.curPos
+            while self.peek().isdigit():
+                self.nextChar()
+            if self.peek() == '.':
+                self.nextChar()
+
+                if not self.peek().isdigit():
+                    # Error
+                    self.abort("Illegal character in number")
+                while self.peek().isdigit():
+                    self.nextChar()
+            
+            tokText = self.source[startPos : self.curPos + 1]
+            token = Token(tokText, TokenType.NUMBER)
+        elif self.curChar.isalpha():
+            # Leading character is letter, should be identifier or keyword
+            startPos = self.curPos
+            while self.peek().isalnum():
+                self.nextChar()
+
+            # Check if the token is keyword
+            tokText = self.source[startPos : self.curPos + 1]
+            keyword = Token.checkIfKeyword(tokText)
+            if keyword == None:
+                token = Token(tokText, TokenType.IDENT)
+            else:
+                token = Token(tokText, keyword)
         elif self.curChar == '\n':
             token = Token(self.curChar, TokenType.NEWLINE)
         elif self.curChar == '\0':
@@ -99,6 +141,14 @@ class Token:
     def __init__(self, tokenText, tokenKind):
         self.text = tokenText # The actual text of the token, ie number, identifier
         self.kind = tokenKind # The TokenType of the token
+
+    @staticmethod
+    def checkIfKeyword(tokenText):
+        for kind in TokenType:
+            # Relies on all keyword enum values being 1XX, but can be changed obviously
+            if kind.name == tokenText and kind.value >= 100 and kind.value < 200:
+                return kind
+        return None
 
 
 class TokenType(enum.Enum):
